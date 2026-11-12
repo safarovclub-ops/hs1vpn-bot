@@ -25,7 +25,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("hs1_telegram_bot")
 
-MODEL = "llama-3.3-70b-versatile"
+MODEL = "openai/gpt-oss-120b"
 TEMPERATURE = 0.9
 MAX_HISTORY_MESSAGES = 15
 MAX_RESPONSE_TOKENS = 1024
