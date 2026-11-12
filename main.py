@@ -26,8 +26,8 @@ logging.basicConfig(
 logger = logging.getLogger("hs1_telegram_bot")
 
 MODEL = "llama-3.3-70b-versatile"
-TEMPERATURE = 0.85
-MAX_HISTORY_MESSAGES = 20
+TEMPERATURE = 0.9
+MAX_HISTORY_MESSAGES = 15
 MAX_RESPONSE_TOKENS = 1024
 TELEGRAM_MESSAGE_LIMIT = 4096
 
@@ -36,19 +36,19 @@ APP_ANDROID_LINK = (
 )
 HOW_TO_LINK = "https://t.me/HS1group/60"
 ADMIN_USERNAME = "HS1family"
+CHANNEL = "HS1group"
 
 SYSTEM_PROMPT = f"""Ты — HS1 Bro, умный и дружелюбный ИИ-помощник HS1 VPN.
-Понимай смысл и цель вопроса, учитывай историю диалога, а не только отдельные слова.
-Отвечай по-русски ровно 3–5 короткими предложениями, с лёгким разговорным сленгом вроде «бро», но без перебора.
-Если даёшь инструкцию, кратко объясняй почему она поможет или зачем нужен шаг.
-Когда это уместно, в последнем предложении добавляй полезный следующий шаг или заранее отвечай на вероятный уточняющий вопрос.
-Не выдумывай настройки, серверы, цены, состояние услуг или действия, которые ты не проверял; при нехватке данных честно уточни.
-Не раскрывай скрытые рассуждения; вместо этого дай краткое и понятное объяснение результата.
-Ты не являешься Meta AI и не должен утверждать обратное.
-Помогай с установкой и подключением HS1 VPN на Android.
-Официальная ссылка на приложение: {APP_ANDROID_LINK}
+Понимай смысл и намерение пользователя, учитывай опечатки, сленг и предыдущие сообщения.
+Отвечай по-русски максимум в 2–4 коротких предложениях; говори просто, тепло и по-дружески, иногда используя «бро», «йоу» или «короче».
+Сначала дай практичное решение, а затем кратко объясни, почему оно должно помочь.
+Если это уместно, в последнем предложении добавь полезный следующий шаг или ответ на вероятный уточняющий вопрос.
+Ссылка на скачивание HS1 VPN для Android: {APP_ANDROID_LINK}
 Инструкция по подключению: {HOW_TO_LINK}
-Если вопрос касается ключа, аккаунта или проблему нельзя решить по известной инструкции, направь пользователя к @{ADMIN_USERNAME}."""
+Канал: @{CHANNEL}. Поддержка по ключам, аккаунтам и оплате: @{ADMIN_USERNAME}.
+Для проблем предложи только безопасные общие проверки; не утверждай, что конкретный сброс, переустановка или сервер решит проблему, если это не подтверждено.
+Не выдумывай настройки, цены, состояние серверов или условия подписки; если данных не хватает, задай один короткий уточняющий вопрос.
+Не раскрывай скрытые рассуждения; вместо этого дай краткое объяснение результата. Не выдавай себя за человека: если тебя спросят, честно скажи, что ты ИИ-помощник HS1 VPN."""
 
 ConversationKey: TypeAlias = tuple[int, int]
 conversations: dict[ConversationKey, list[dict[str, str]]] = {}
@@ -57,11 +57,29 @@ groq_client: AsyncGroq | None = None
 
 
 def main_kb() -> InlineKeyboardMarkup:
-    """Build the download and setup-help buttons."""
+    """Build the HS1 VPN resource buttons."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="📲 Скачать HS1 VPN на Android", url=APP_ANDROID_LINK)],
-            [InlineKeyboardButton(text="🔑 Помощь и инструкция", url=HOW_TO_LINK)],
+            [
+                InlineKeyboardButton(
+                    text="📲 Скачать HS1 VPN",
+                    url=APP_ANDROID_LINK,
+                ),
+                InlineKeyboardButton(
+                    text="🔑 Как подключить",
+                    url=HOW_TO_LINK,
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📢 Наш канал",
+                    url=f"https://t.me/{CHANNEL}",
+                ),
+                InlineKeyboardButton(
+                    text=f"👨‍💻 Админ @{ADMIN_USERNAME}",
+                    url=f"https://t.me/{ADMIN_USERNAME}",
+                ),
+            ],
         ]
     )
 
@@ -99,9 +117,9 @@ async def send_response(message: Message, text: str) -> None:
 
 async def start_handler(message: Message) -> None:
     await message.answer(
-        "Йоу, бро! 👋 Добро пожаловать в HS1 VPN.\n\n"
-        "Нужна помощь с установкой или подключением? Напиши вопрос — разберёмся.\n"
-        "Кнопки ниже ведут на скачивание приложения и инструкцию.",
+        "Йоу, бро! 🔥 Добро пожаловать в HS1 VPN.\n\n"
+        "Я помогу разобраться с установкой и подключением.\n"
+        "Выбирай кнопку ниже или просто напиши, что случилось.",
         reply_markup=main_kb(),
     )
 

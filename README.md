@@ -2,7 +2,7 @@
 
 A Russian-language HS1 VPN support bot built with Python, aiogram 3, and Groq.
 Its menu links to the Android app and setup instructions. The AI assistant uses
-the `llama-3.3-70b-versatile` model at temperature `0.85`, keeps the latest 20
+the `llama-3.3-70b-versatile` model at temperature `0.9`, keeps the latest 15
 messages per person in memory, and provides `/start`, `/help`, and `/reset`.
 
 ## HS1 VPN links
@@ -11,6 +11,9 @@ messages per person in memory, and provides `/start`, `/help`, and `/reset`.
 - Setup instructions: https://t.me/HS1group/60
 - Channel: https://t.me/HS1group
 - Support: https://t.me/HS1family
+
+The inline menu includes buttons for all four links. Replies use a casual,
+concise Russian tone; they avoid claiming unverified troubleshooting fixes.
 
 ## Run on Replit
 
