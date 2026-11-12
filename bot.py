@@ -119,7 +119,7 @@ async def chat_handler(message: Message) -> None:
             completion = await groq_client.chat.completions.create(
                 model=os.getenv("GROQ_MODEL", DEFAULT_MODEL),
                 messages=request_messages,
-                max_tokens=MAX_RESPONSE_TOKENS,
+                max_completion_tokens=MAX_RESPONSE_TOKENS,
             )
             answer = completion.choices[0].message.content
             if not answer or not answer.strip():
@@ -184,6 +184,8 @@ async def main() -> None:
 
     logger.info("Starting Telegram bot with Groq model %s", os.getenv("GROQ_MODEL", DEFAULT_MODEL))
     try:
+        # This bot uses long polling; Telegram permits polling or a webhook, not both.
+        await bot.delete_webhook(drop_pending_updates=False)
         await dispatcher.start_polling(
             bot,
             allowed_updates=dispatcher.resolve_used_update_types(),

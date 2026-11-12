@@ -12,7 +12,8 @@ and provides `/start`, `/help`, and `/reset` commands.
 3. Start the **Telegram AI Bot** workflow.
 
 The bot reads secrets directly from the environment. Do not put tokens in source
-files or commit a `.env` file.
+files or commit a `.env` file. On startup it removes any webhook configured for
+this Telegram bot so long polling can work; queued Telegram updates are kept.
 
 ## Configuration
 
