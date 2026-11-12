@@ -1,11 +1,11 @@
-# Groq Telegram AI Bot
+# HS1 VPN Telegram AI Bot
 
-A Python Telegram chatbot built with aiogram and Groq, with per-user in-memory conversation context.
+A Russian-language HS1 VPN Telegram support bot built with aiogram and Groq.
 
 ## Run & Operate
 
 - Start the `Telegram AI Bot` workflow to run the bot.
-- `python bot.py` — run the bot locally after installing `requirements.txt`
+- `python main.py` — run the bot locally after installing `requirements.txt`
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
@@ -31,8 +31,8 @@ _Populate as you build — non-obvious choices a reader couldn't infer from the 
 
 ## Product
 
-- Telegram chat assistant using Groq, with `/start`, `/help`, and `/reset`.
-- Conversation context is temporary and stored in memory per chat participant.
+- HS1 VPN chat assistant using Groq, with `/start`, `/help`, and `/reset`.
+- Conversation context is temporary and stores the latest 20 messages per participant.
 
 ## User preferences
 

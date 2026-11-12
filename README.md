@@ -1,9 +1,9 @@
 # HS1 VPN Telegram AI Bot
 
 A Russian-language HS1 VPN support bot built with Python, aiogram 3, and Groq.
-Its menu links to the Android app, setup instructions, HS1group channel, and
-support admin. The AI assistant answers VPN questions and provides `/start`,
-`/help`, and `/reset` commands.
+Its menu links to the Android app and setup instructions. The AI assistant uses
+the `llama-3.3-70b-versatile` model at temperature `0.85`, keeps the latest 20
+messages per person in memory, and provides `/start`, `/help`, and `/reset`.
 
 ## HS1 VPN links
 
@@ -29,7 +29,6 @@ this Telegram bot so long polling can work; queued Telegram updates are kept.
 | --- | --- | --- | --- |
 | `TELEGRAM_BOT_TOKEN` | Yes | — | Token created with @BotFather |
 | `GROQ_API_KEY` | Yes | — | Groq API key |
-| `GROQ_MODEL` | No | `llama-3.3-70b-versatile` | Groq chat model |
 | `LOG_LEVEL` | No | `INFO` | Python log level |
 
 Conversation history is kept in memory and is cleared when the bot restarts.
@@ -41,5 +40,5 @@ Install dependencies from `requirements.txt`, set the two required environment
 variables, then run:
 
 ```sh
-python bot.py
+python main.py
 ```

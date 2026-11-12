@@ -24,12 +24,12 @@ args = "Telegram AI Bot"
 name = "Telegram AI Bot"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python -u bot.py"
-
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python -u main.py"
 
 [agent]
 stack = "PNPM_WORKSPACE"
