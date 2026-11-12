@@ -1,15 +1,16 @@
-# [Project name]
+# Groq Telegram AI Bot
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A Python Telegram chatbot built with aiogram and Groq, with per-user in-memory conversation context.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- Start the `Telegram AI Bot` workflow to run the bot.
+- `python bot.py` — run the bot locally after installing `requirements.txt`
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Required Replit Secrets: `TELEGRAM_BOT_TOKEN`, `GROQ_API_KEY`
 
 ## Stack
 
@@ -30,7 +31,8 @@ _Populate as you build — non-obvious choices a reader couldn't infer from the 
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Telegram chat assistant using Groq, with `/start`, `/help`, and `/reset`.
+- Conversation context is temporary and stored in memory per chat participant.
 
 ## User preferences
 
