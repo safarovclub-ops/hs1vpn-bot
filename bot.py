@@ -10,7 +10,7 @@ from typing import TypeAlias
 from aiogram import Bot, Dispatcher, F
 from aiogram.enums import ChatAction
 from aiogram.filters import Command, CommandStart
-from aiogram.types import Message
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from groq import (
     APIConnectionError,
     APIStatusError,
@@ -27,9 +27,18 @@ logger = logging.getLogger("telegram_ai_bot")
 
 DEFAULT_MODEL = "llama-3.3-70b-versatile"
 SYSTEM_PROMPT = (
-    "You are a helpful, clear, and friendly AI assistant in a Telegram chat. "
-    "Answer the user's request directly. If you are unsure, say so."
+    "Ты — ИИ-помощник HS1 VPN. Отвечай по-русски, коротко и дружелюбно. "
+    "Помогай с установкой и подключением HS1 VPN на Android. "
+    f"Ссылка на приложение: https://github.com/safarovclub-ops/HS1VPN/releases/download/v1.0/HSOneVPN12.apk. "
+    "Инструкция: https://t.me/HS1group/60. "
+    "Канал: @HS1group. Поддержка: @HS1family. "
+    "Не выдумывай настройки, состояние серверов или детали подписки. "
+    "Если не знаешь ответа или вопрос касается аккаунта/ключа, направь пользователя к @HS1family."
 )
+APP_ANDROID_LINK = "https://github.com/safarovclub-ops/HS1VPN/releases/download/v1.0/HSOneVPN12.apk"
+HOW_TO_LINK = "https://t.me/HS1group/60"
+ADMIN_USERNAME = "HS1family"
+CHANNEL = "HS1group"
 MAX_HISTORY_MESSAGES = 20
 MAX_RESPONSE_TOKENS = 1024
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -38,6 +47,33 @@ ConversationKey: TypeAlias = tuple[int, int]
 conversations: dict[ConversationKey, list[dict[str, str]]] = {}
 conversation_locks: dict[ConversationKey, asyncio.Lock] = {}
 groq_client: AsyncGroq | None = None
+
+
+def main_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📲 Скачать HS1 VPN на Android", url=APP_ANDROID_LINK)],
+            [InlineKeyboardButton(text="🔑 Как подключить VPN", url=HOW_TO_LINK)],
+            [
+                InlineKeyboardButton(
+                    text=f"📢 Наш канал @{CHANNEL}",
+                    url=f"https://t.me/{CHANNEL}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"👨‍💻 Поддержка / Админ @{ADMIN_USERNAME}",
+                    url=f"https://t.me/{ADMIN_USERNAME}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="💬 Спросить у ИИ-помощника",
+                    callback_data="ask_ai",
+                )
+            ],
+        ]
+    )
 
 
 def get_lock(key: ConversationKey) -> asyncio.Lock:
@@ -66,24 +102,42 @@ def split_telegram_text(text: str) -> list[str]:
 
 
 async def send_response(message: Message, text: str) -> None:
-    for chunk in split_telegram_text(text):
-        await message.answer(chunk)
+    chunks = split_telegram_text(text)
+    for index, chunk in enumerate(chunks):
+        markup = main_kb() if index == len(chunks) - 1 else None
+        await message.answer(chunk, reply_markup=markup)
 
 
 async def start_handler(message: Message) -> None:
     await message.answer(
-        "Hi! I'm an AI assistant powered by Groq. Send me a message to get started.\n\n"
-        "Use /reset to clear your conversation or /help to see commands."
+        "Йоу бро! 👋 Добро пожаловать в HS1 VPN!\n\n"
+        "Я твой помощник и помогу разобраться за пару минут:\n\n"
+        "📲 1. Скачай приложение\n"
+        "🔑 2. Подключись по инструкции\n"
+        "👨‍💻 3. Если не получится — напиши админу\n\n"
+        "Выбирай кнопку ниже или просто напиши свой вопрос!",
+        reply_markup=main_kb(),
     )
 
 
 async def help_handler(message: Message) -> None:
     await message.answer(
-        "Send me a text message and I'll reply with AI-generated help.\n\n"
-        "/start — start the bot\n"
-        "/reset — clear your conversation history\n"
-        "/help — show this help"
+        "Напиши вопрос про установку или подключение HS1 VPN — отвечу по-русски.\n\n"
+        "/start — открыть меню\n"
+        "/reset — очистить историю диалога\n"
+        "/help — показать эту справку",
+        reply_markup=main_kb(),
     )
+
+
+async def ask_ai_handler(callback: CallbackQuery) -> None:
+    if isinstance(callback.message, Message):
+        await callback.message.answer(
+            "Ок, бро! Напиши свой вопрос про HS1 VPN — например, как подключить "
+            "приложение или что делать, если возникла проблема.",
+            reply_markup=main_kb(),
+        )
+    await callback.answer()
 
 
 async def reset_handler(message: Message) -> None:
@@ -91,7 +145,7 @@ async def reset_handler(message: Message) -> None:
         key = (message.chat.id, message.from_user.id)
         async with get_lock(key):
             conversations.pop(key, None)
-    await message.answer("Your conversation history has been cleared.")
+    await message.answer("История диалога очищена.", reply_markup=main_kb())
 
 
 async def chat_handler(message: Message) -> None:
@@ -99,7 +153,10 @@ async def chat_handler(message: Message) -> None:
         return
     if groq_client is None:
         logger.error("Groq client was not initialized")
-        await message.answer("The AI service isn't configured yet. Please try again later.")
+        await message.answer(
+            "ИИ-помощник пока не настроен. Попробуй позже или напиши админу @HS1family.",
+            reply_markup=main_kb(),
+        )
         return
 
     key = (message.chat.id, message.from_user.id)
@@ -126,23 +183,38 @@ async def chat_handler(message: Message) -> None:
                 raise ValueError("Groq returned an empty response")
         except RateLimitError:
             logger.warning("Groq rate limit reached")
-            await message.answer("I'm receiving too many requests right now. Please try again shortly.")
+            await message.answer(
+                "Сейчас много запросов. Попробуй ещё раз чуть позже.",
+                reply_markup=main_kb(),
+            )
             return
         except APITimeoutError:
             logger.warning("Groq request timed out")
-            await message.answer("The AI response took too long. Please try again.")
+            await message.answer(
+                "ИИ долго отвечает. Попробуй ещё раз или напиши админу @HS1family.",
+                reply_markup=main_kb(),
+            )
             return
         except APIConnectionError:
             logger.exception("Could not connect to Groq")
-            await message.answer("I can't reach the AI service right now. Please try again shortly.")
+            await message.answer(
+                "ИИ-помощник временно недоступен. Попробуй позже или напиши админу @HS1family.",
+                reply_markup=main_kb(),
+            )
             return
         except APIStatusError as error:
             logger.error("Groq returned HTTP status %s", error.status_code)
-            await message.answer("The AI service returned an error. Please try again later.")
+            await message.answer(
+                "Не получилось получить ответ. Попробуй позже или напиши админу @HS1family.",
+                reply_markup=main_kb(),
+            )
             return
         except Exception:
             logger.exception("Could not generate a response")
-            await message.answer("I couldn't generate a response. Please try again.")
+            await message.answer(
+                "Бро, ИИ сейчас не отвечает. Попробуй позже или напиши админу @HS1family.",
+                reply_markup=main_kb(),
+            )
             return
 
         updated_history = [
@@ -180,6 +252,7 @@ async def main() -> None:
     dispatcher.message.register(start_handler, CommandStart())
     dispatcher.message.register(help_handler, Command("help"))
     dispatcher.message.register(reset_handler, Command("reset"))
+    dispatcher.callback_query.register(ask_ai_handler, F.data == "ask_ai")
     dispatcher.message.register(chat_handler, F.text)
 
     logger.info("Starting Telegram bot with Groq model %s", os.getenv("GROQ_MODEL", DEFAULT_MODEL))

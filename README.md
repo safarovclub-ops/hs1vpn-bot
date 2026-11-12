@@ -1,8 +1,16 @@
-# Groq Telegram AI Bot
+# HS1 VPN Telegram AI Bot
 
-A Telegram chatbot built with Python, aiogram 3, and Groq. It supports private
-and group chats, keeps a short conversation context for each person in memory,
-and provides `/start`, `/help`, and `/reset` commands.
+A Russian-language HS1 VPN support bot built with Python, aiogram 3, and Groq.
+Its menu links to the Android app, setup instructions, HS1group channel, and
+support admin. The AI assistant answers VPN questions and provides `/start`,
+`/help`, and `/reset` commands.
+
+## HS1 VPN links
+
+- Android app: https://github.com/safarovclub-ops/HS1VPN/releases/download/v1.0/HSOneVPN12.apk
+- Setup instructions: https://t.me/HS1group/60
+- Channel: https://t.me/HS1group
+- Support: https://t.me/HS1family
 
 ## Run on Replit
 
