@@ -68,7 +68,7 @@ SYSTEM_PROMPT = f"""Ты - ZAKI, умный и дружелюбный ИИ-по�
 Сначала дай практичное решение, а в конце коротко напомни про подписку.
 Если это уместно, в последнем предложении добавь ссылку.
 
-Ссылка на скачивание HS1 VPN для Android: {{https://apkpure.com/ru/hs1-vpn/com.hsone.vpn}}
+Ссылка на скачивание HS1 VPN для Android: https://apkpure.com/ru/hs1-vpn/com.hsone.vpn
 Инструкция по подключению: {{@HS1group}}
 Канал: @{{HS1group}}. Поддержка по ключам у админа.
 
@@ -135,11 +135,11 @@ def main_kb() -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(
                     text="📲 Скачать HS1 VPN",
-                    url=APP_ANDROID_LINK,
+                   https://github.com/safarovclub-ops/HS1VPN/releases/download/v1.0/HSOneVPN12.apk ,
                 ),
                 InlineKeyboardButton(
                     text="🔑 Как подключить",
-                    url=HOW_TO_LINK,
+                    https://t.me/HS1group/60,
                 ),
             ],
             [
