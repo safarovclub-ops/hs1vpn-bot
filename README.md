@@ -25,6 +25,13 @@ concise Russian tone; they avoid claiming unverified troubleshooting fixes.
 The bot reads secrets directly from the environment. Do not put tokens in source
 files or commit a `.env` file. On startup it removes any webhook configured for
 this Telegram bot so long polling can work; queued Telegram updates are kept.
+The workflow also serves `GET /health` on the deployment's `PORT` at
+`0.0.0.0`. Configure an external uptime monitor to request the deployed
+application's `/health` URL; the endpoint does not ping itself.
+
+An endpoint or regular external pings cannot guarantee that an Autoscale
+deployment stays awake. For a firm always-running guarantee, use an always-on
+deployment mode such as a [Reserved VM Deployment](https://docs.replit.com/features/publishing/deployment-types).
 
 ## Configuration
 
@@ -32,6 +39,7 @@ this Telegram bot so long polling can work; queued Telegram updates are kept.
 | --- | --- | --- | --- |
 | `TELEGRAM_BOT_TOKEN` | Yes | — | Token created with @BotFather |
 | `GROQ_API_KEY` | Yes | — | Groq API key |
+| `PORT` | No | `5000` | HTTP port for the health endpoint |
 | `LOG_LEVEL` | No | `INFO` | Python log level |
 
 Conversation history is kept in memory and is cleared when the bot restarts.
@@ -40,8 +48,17 @@ Use `/reset` to clear one person's history without restarting.
 ## Local development
 
 Install dependencies from `requirements.txt`, set the two required environment
-variables, then run:
+variables, then run. The health endpoint is available at
+`http://localhost:5000/health` by default. Start the bot:
 
 ```sh
 python main.py
 ```
+
+In another terminal, check the endpoint with:
+
+```sh
+curl http://localhost:5000/health
+```
+
+When running locally on a different port, set `PORT` before starting the bot.

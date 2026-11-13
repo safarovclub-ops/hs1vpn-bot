@@ -5,12 +5,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import threading
 from typing import TypeAlias
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.enums import ChatAction
 from aiogram.filters import Command, CommandStart
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
+from flask import Flask, jsonify
 from groq import (
     APIConnectionError,
     APIStatusError,
@@ -18,6 +20,7 @@ from groq import (
     AsyncGroq,
     RateLimitError,
 )
+from werkzeug.serving import BaseWSGIServer, make_server
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO").upper(),
@@ -54,6 +57,53 @@ ConversationKey: TypeAlias = tuple[int, int]
 conversations: dict[ConversationKey, list[dict[str, str]]] = {}
 conversation_locks: dict[ConversationKey, asyncio.Lock] = {}
 groq_client: AsyncGroq | None = None
+
+
+def create_health_app() -> Flask:
+    """Create the small HTTP app used by uptime monitors."""
+    app = Flask(__name__)
+
+    @app.get("/health")
+    def health():
+        return jsonify(status="ok"), 200
+
+    return app
+
+
+def start_health_server() -> tuple[BaseWSGIServer, threading.Thread]:
+    """Start the health endpoint in a background thread."""
+    try:
+        port = int(os.getenv("PORT", "5000"))
+    except ValueError as error:
+        raise RuntimeError("PORT must be an integer") from error
+    if not 1 <= port <= 65535:
+        raise RuntimeError("PORT must be between 1 and 65535")
+
+    server = make_server(
+        "0.0.0.0",
+        port,
+        create_health_app(),
+        threaded=True,
+    )
+    thread = threading.Thread(
+        target=server.serve_forever,
+        name="health-http-server",
+        daemon=True,
+    )
+    thread.start()
+    logger.info("Health endpoint listening on 0.0.0.0:%s/health", port)
+    return server, thread
+
+
+def stop_health_server(
+    server: BaseWSGIServer, thread: threading.Thread
+) -> None:
+    """Stop the background health server and release its listening socket."""
+    server.shutdown()
+    server.server_close()
+    thread.join(timeout=5)
+    if thread.is_alive():
+        logger.warning("Health server thread did not stop within five seconds")
 
 
 def main_kb() -> InlineKeyboardMarkup:
@@ -224,37 +274,39 @@ async def chat_handler(message: Message) -> None:
 async def main() -> None:
     global groq_client
 
-    telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
-    groq_api_key = os.getenv("GROQ_API_KEY")
-    missing = [
-        name
-        for name, value in (
-            ("TELEGRAM_BOT_TOKEN", telegram_token),
-            ("GROQ_API_KEY", groq_api_key),
-        )
-        if not value
-    ]
-    if missing:
-        raise RuntimeError(
-            "Missing required secret(s): "
-            + ", ".join(missing)
-            + ". Add them in Replit Secrets before starting the bot."
-        )
-
-    groq_client = AsyncGroq(api_key=groq_api_key, timeout=30.0, max_retries=2)
-    bot = Bot(token=telegram_token)
-    dispatcher = Dispatcher()
-    dispatcher.message.register(start_handler, CommandStart())
-    dispatcher.message.register(help_handler, Command("help"))
-    dispatcher.message.register(reset_handler, Command("reset"))
-    dispatcher.message.register(chat_handler, F.text)
-
-    logger.info(
-        "Starting HS1 Telegram bot with model %s at temperature %.2f",
-        MODEL,
-        TEMPERATURE,
-    )
+    health_server, health_thread = start_health_server()
+    bot: Bot | None = None
     try:
+        telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
+        groq_api_key = os.getenv("GROQ_API_KEY")
+        missing = [
+            name
+            for name, value in (
+                ("TELEGRAM_BOT_TOKEN", telegram_token),
+                ("GROQ_API_KEY", groq_api_key),
+            )
+            if not value
+        ]
+        if missing:
+            raise RuntimeError(
+                "Missing required secret(s): "
+                + ", ".join(missing)
+                + ". Add them in Replit Secrets before starting the bot."
+            )
+
+        groq_client = AsyncGroq(api_key=groq_api_key, timeout=30.0, max_retries=2)
+        bot = Bot(token=telegram_token)
+        dispatcher = Dispatcher()
+        dispatcher.message.register(start_handler, CommandStart())
+        dispatcher.message.register(help_handler, Command("help"))
+        dispatcher.message.register(reset_handler, Command("reset"))
+        dispatcher.message.register(chat_handler, F.text)
+
+        logger.info(
+            "Starting HS1 Telegram bot with model %s at temperature %.2f",
+            MODEL,
+            TEMPERATURE,
+        )
         # Long polling and webhooks cannot be active at the same time.
         await bot.delete_webhook(drop_pending_updates=False)
         await dispatcher.start_polling(
@@ -262,9 +314,16 @@ async def main() -> None:
             allowed_updates=dispatcher.resolve_used_update_types(),
         )
     finally:
-        await bot.session.close()
-        await groq_client.close()
-        groq_client = None
+        try:
+            if bot is not None:
+                await bot.session.close()
+        finally:
+            try:
+                if groq_client is not None:
+                    await groq_client.close()
+            finally:
+                groq_client = None
+                stop_health_server(health_server, health_thread)
 
 
 if __name__ == "__main__":
