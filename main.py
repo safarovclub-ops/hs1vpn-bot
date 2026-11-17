@@ -169,13 +169,13 @@ def main_kb() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="📲 Скачать HS1 VPN",
-                   https://github.com/safarovclub-ops/HS1VPN/releases/download/v1.0/HSOneVPN12.apk ,
-                ),
-                InlineKeyboardButton(
-                    text="🔑 Как подключить",
-                    https://t.me/HS1group/60,
-                ),
+    text="📥 Скачать HS1 VPN",
+    url="https://github.com/safarovclub-ops/HS1VPN/releases/download/v1.0/HSOneVPN12.apk",
+),
+InlineKeyboardButton(
+    text="🔑 Как подключить",
+    url="https://t.me/HS1group/60",
+),
             ],
             [
                 InlineKeyboardButton(
