@@ -124,7 +124,35 @@ def create_health_app() -> Flask:
     def health():
         return jsonify(status="ok"), 200
 
+    @app.post("/ask")
+    def ask_for_site():
+        from flask import request
+        from groq import Groq
+        try:
+            q = request.get_json(force=True).get('q', '')
+            client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+            r = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": "Ты Zaki, помощник HS1VPN. Говори коротко, по-братски. Директор @HS1family, канал @HS1group. Скачать: https://github.com/safarovclub-ops/HS1VPN/releases/download/v1.0/HSOneVPN12.apk Тарифы 139р/399р/699р. 5ГБ бесплатно: внизу справа АККАУНТ > Зарегистрироваться > Email+пароль. При оплате тот же Email!"},
+                    {"role": "user", "content": q}
+                ]
+            )
+            resp = jsonify({'answer': r.choices[0].message.content})
+            resp.headers['Access-Control-Allow-Origin'] = '*'
+            return resp
+        except Exception as e:
+            return jsonify({'answer': 'Тупит, напиши @HS1family'})
+
+    @app.after_request
+    def add_cors(resp):
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        resp.headers['Access-Control-Allow-Methods'] = 'POST, GET, OPTIONS'
+        return resp
+
     return app
+0
 
 
 def start_health_server() -> tuple[BaseWSGIServer, threading.Thread]:
