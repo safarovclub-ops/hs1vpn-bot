@@ -179,13 +179,13 @@ InlineKeyboardButton(
             ],
             [
                 InlineKeyboardButton(
-                    text="📢 Наш канал",
-                    url=f"https://t.me/{@HS1group}",
-                ),
-                InlineKeyboardButton(
-                    text=f"👨‍💻 Админ @{@HS1family}",
-                    url=f"https://t.me/{@HS1family}",
-                ),
+    text="📢 Наш канал",
+    url="https://t.me/HS1group",
+),
+InlineKeyboardButton(
+    text="👨‍💼 Админ @HS1family",
+    url="https://t.me/HS1family",
+),
             ],
         ]
     )
