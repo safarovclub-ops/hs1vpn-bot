@@ -19,6 +19,7 @@ from groq import (
     APITimeoutError,
     AsyncGroq,
     RateLimitError,
+    Groq,
 )
 from werkzeug.serving import BaseWSGIServer, make_server
 
@@ -115,7 +116,6 @@ conversations: dict[ConversationKey, list[dict[str, str]]] = {}
 conversation_locks: dict[ConversationKey, asyncio.Lock] = {}
 groq_client: AsyncGroq | None = None
 
-
 def create_health_app() -> Flask:
     """Create the small HTTP app used by uptime monitors."""
     app = Flask(__name__)
@@ -127,22 +127,27 @@ def create_health_app() -> Flask:
     @app.post("/ask")
     def ask_for_site():
         from flask import request
-        from groq import Groq
         try:
             q = request.get_json(force=True).get('q', '')
+            if not q:
+                return jsonify({'answer': 'Салом бародар! Чихел ёрдам диҳам? 🔥'})
+            # ТЕПЕРЬ САЙТ ИСПОЛЬЗУЕТ ТОТ ЖЕ ZAKI ULTRA PRO ЧТО И ТЕЛЕГА
             client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
             r = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[
-                    {"role": "system", "content": "Ты Zaki, помощник HS1VPN. Говори коротко, по-братски. Директор @HS1family, канал @HS1group. Скачать: https://github.com/safarovclub-ops/HS1VPN/releases/download/v1.0/HSOneVPN12.apk Тарифы 139р/399р/699р. 5ГБ бесплатно: внизу справа АККАУНТ > Зарегистрироваться > Email+пароль. При оплате тот же Email!"},
+                    {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": q}
-                ]
+                ],
+                temperature=0.9,
+                max_tokens=400
             )
             resp = jsonify({'answer': r.choices[0].message.content})
             resp.headers['Access-Control-Allow-Origin'] = '*'
             return resp
         except Exception as e:
-            return jsonify({'answer': 'Тупит, напиши @HS1family'})
+            print("ASK ERROR:", e)
+            return jsonify({'answer': 'Бро, связь тупит, напиши @HS1family'})
 
     @app.after_request
     def add_cors(resp):
@@ -152,8 +157,6 @@ def create_health_app() -> Flask:
         return resp
 
     return app
-0
-
 
 def start_health_server() -> tuple[BaseWSGIServer, threading.Thread]:
     """Start the health endpoint in a background thread."""
@@ -179,7 +182,6 @@ def start_health_server() -> tuple[BaseWSGIServer, threading.Thread]:
     logger.info("Health endpoint listening on 0.0.0.0:%s/health", port)
     return server, thread
 
-
 def stop_health_server(
     server: BaseWSGIServer, thread: threading.Thread
 ) -> None:
@@ -189,7 +191,6 @@ def stop_health_server(
     thread.join(timeout=5)
     if thread.is_alive():
         logger.warning("Health server thread did not stop within five seconds")
-
 
 def main_kb() -> InlineKeyboardMarkup:
     """Build the HS1 VPN resource buttons."""
@@ -218,13 +219,11 @@ InlineKeyboardButton(
         ]
     )
 
-
 def get_lock(key: ConversationKey) -> asyncio.Lock:
     """Return a lock that keeps one person's turns in order."""
     if key not in conversation_locks:
         conversation_locks[key] = asyncio.Lock()
     return conversation_locks[key]
-
 
 def split_telegram_text(text: str) -> list[str]:
     """Split long responses at word boundaries for Telegram."""
@@ -242,13 +241,11 @@ def split_telegram_text(text: str) -> list[str]:
         chunks.append(remaining)
     return chunks or ["Бро, не получилось подготовить ответ. Попробуй ещё раз."]
 
-
 async def send_response(message: Message, text: str) -> None:
     chunks = split_telegram_text(text)
     for index, chunk in enumerate(chunks):
         markup = main_kb() if index == len(chunks) - 1 else None
         await message.answer(chunk, reply_markup=markup)
-
 
 async def start_handler(message: Message) -> None:
     await message.answer(
@@ -257,7 +254,6 @@ async def start_handler(message: Message) -> None:
         "Выбирай кнопку ниже или просто напиши, что случилось.",
         reply_markup=main_kb(),
     )
-
 
 async def help_handler(message: Message) -> None:
     await message.answer(
@@ -268,14 +264,12 @@ async def help_handler(message: Message) -> None:
         reply_markup=main_kb(),
     )
 
-
 async def reset_handler(message: Message) -> None:
     if message.from_user is not None:
         key = (message.chat.id, message.from_user.id)
         async with get_lock(key):
             conversations.pop(key, None)
     await message.answer("Готово, бро — память диалога очищена.", reply_markup=main_kb())
-
 
 async def chat_handler(message: Message) -> None:
     if message.text is None or message.from_user is None:
@@ -355,7 +349,6 @@ async def chat_handler(message: Message) -> None:
         conversations[key] = updated_history[-MAX_HISTORY_MESSAGES:]
         await send_response(message, answer)
 
-
 async def main() -> None:
     global groq_client
 
@@ -392,7 +385,6 @@ async def main() -> None:
             MODEL,
             TEMPERATURE,
         )
-        # Long polling and webhooks cannot be active at the same time.
         await bot.delete_webhook(drop_pending_updates=False)
         await dispatcher.start_polling(
             bot,
@@ -409,7 +401,6 @@ async def main() -> None:
             finally:
                 groq_client = None
                 stop_health_server(health_server, health_thread)
-
 
 if __name__ == "__main__":
     try:
