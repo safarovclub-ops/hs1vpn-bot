@@ -11,8 +11,8 @@ from typing import TypeAlias
 from aiogram import Bot, Dispatcher, F
 from aiogram.enums import ChatAction
 from aiogram.filters import Command, CommandStart
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
-from flask import Flask, jsonify
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo
+from flask import Flask, jsonify, request
 from groq import (
     APIConnectionError,
     APIStatusError,
@@ -35,12 +35,12 @@ MAX_HISTORY_MESSAGES = 15
 MAX_RESPONSE_TOKENS = 1024
 TELEGRAM_MESSAGE_LIMIT = 4096
 
-APP_ANDROID_LINK = (
-    "https://github.com/safarovclub-ops/HS1VPN/releases/download/v1.0/HSOneVPN12.apk"
-)
+APP_ANDROID_LINK = "https://github.com/safarovclub-ops/HS1VPN/releases/download/v1.0/HSOneVPN12.apk"
 HOW_TO_LINK = "https://t.me/HS1group/60"
 ADMIN_USERNAME = "HS1family"
 CHANNEL = "HS1group"
+SITE_URL = "https://safarovclub-ops.github.io/Zaki/"
+
 SYSTEM_PROMPT = """Ты ZAKI ULTRA PRO - агент №1 HS1 VPN. Ты живой менеджер, не бот, не ИИ. Ты лучший по продажам в СНГ.
 
 ТВОЯ МИССИЯ: Каждый кто написал должен за 1 минуту скачать, получить 5ГБ БЕСПЛАТНО и захотеть 6 мес.
@@ -74,6 +74,7 @@ SYSTEM_PROMPT = """Ты ZAKI ULTRA PRO - агент №1 HS1 VPN. Ты живо�
 - Как подключить видео: https://t.me/HS1group/60
 - Админ: @HS1family - https://t.me/HS1family
 - Канал: @HS1group - https://t.me/HS1group
+- Игра FLAPPY: https://safarovclub-ops.github.io/Zaki/
 
 СКРИПТЫ ПРОДАЖ №1 - РАБОТАЙ ПО НИМ:
 
@@ -97,7 +98,11 @@ TJ: "Мефаҳмам бародар! 139₽ ин 4₽ дар рӯз! Аввал
 RU: "Бро без паники! 2 проверки: 1. В приложении покупал? 2. Email совпадает? Если да - чек @HS1family, 2 мин решим!"
 TJ: "Бародар гап нест! 2 чиз: 1. Дар приложение хари дӣ? 2. Email як хел? Агар ҳа - чек ба @HS1family, ҳозир ҳал мекунем!"
 
-6. СПАСИБО / ПОКА:
+6. ИГРА:
+RU: "Бро, залетай в FLAPPY ZAKI! 15 врат = 5ГБ БЕСПЛАТНО! Жми кнопку! Играешь?"
+TJ: "Бародар, FLAPPY ZAKI бозӣ кун! 15 дарвоза = 5ГБ БЕПУЛ! Тугмаро пахш кун!"
+
+7. СПАСИБО / ПОКА:
 RU: "Красавчик бро! Всегда на связи! Если что - @HS1family решит за 2 мин! 🤝"
 TJ: "Раҳмат бародар! Ҳамеша дар алоқа! Агар чизе - @HS1family 2 дақиқа ҳал мекунад! 🤝"
 
@@ -111,81 +116,88 @@ TJ: "Раҳмат бародар! Ҳамеша дар алоқа! Агар чи�
 
 Ты уже помог 15000+ братьям. Ты гордость HS1. Ты №1!
 """
+
 ConversationKey: TypeAlias = tuple[int, int]
 conversations: dict[ConversationKey, list[dict[str, str]]] = {}
 conversation_locks: dict[ConversationKey, asyncio.Lock] = {}
 groq_client: AsyncGroq | None = None
 
 def create_health_app() -> Flask:
-    """Create the small HTTP app used by uptime monitors."""
     app = Flask(__name__)
 
     @app.get("/health")
     def health():
         return jsonify(status="ok"), 200
 
-    @app.post("/ask")
+    @app.get("/")
+    def home():
+        return jsonify(status="ok", bot="HS1 ZAKI"), 200
+
+    @app.route("/ask", methods=["POST", "OPTIONS"])
     def ask_for_site():
-        from flask import request
+        if request.method == "OPTIONS":
+            return "", 200
         try:
-            q = request.get_json(force=True).get('q', '')
+            data = request.get_json(force=True, silent=True) or {}
+            q = data.get('q', '') or data.get('question', '') or data.get('message', '')
+            print(f"SITE ASK: {q}", flush=True)
             if not q:
                 return jsonify({'answer': 'Салом бародар! Чихел ёрдам диҳам? 🔥'})
-            # ТЕПЕРЬ САЙТ ИСПОЛЬЗУЕТ ТОТ ЖЕ ZAKI ULTRA PRO ЧТО И ТЕЛЕГА
-            client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+            api_key = os.environ.get("GROQ_API_KEY")
+            if not api_key:
+                print("ERROR NO KEY", flush=True)
+                return jsonify({'answer': 'Бро, напиши @HS1family, он щас решит!'})
+            client = Groq(api_key=api_key, timeout=25.0)
             r = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": q}
                 ],
                 temperature=0.9,
-                max_tokens=400
+                max_completion_tokens=400
             )
-            resp = jsonify({'answer': r.choices[0].message.content})
-            resp.headers['Access-Control-Allow-Origin'] = '*'
-            return resp
+            ans = r.choices[0].message.content
+            print("SITE OK", flush=True)
+            return jsonify({'answer': ans})
         except Exception as e:
-            print("ASK ERROR:", e)
-            return jsonify({'answer': 'Бро, связь тупит, напиши @HS1family'})
+            print(f"ASK ERROR: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
+            qlow = ""
+            try:
+                qlow = (data.get('q','') if 'data' in locals() else '').lower()
+            except:
+                pass
+            if 'тариф' in qlow or 'цен' in qlow or 'нарх' in qlow or 'чанд' in qlow:
+                return jsonify({'answer': 'Бро! Тарифы HS1: 1 мес - 139₽, 3 мес - 399₽, 6 мес - 699₽ ТОП! Берется ТОЛЬКО в приложении HS1 VPN! 5ГБ бесплатно после регистрации! Берем 6 мес? 🔥'})
+            if 'скачат' in qlow or 'кач' in qlow or 'насб' in qlow:
+                return jsonify({'answer': 'Бародар, держи: https://github.com/safarovclub-ops/HS1VPN/releases/download/v1.0/HSOneVPN12.apk Качай, регистрация и 5ГБ твои! Мекашӣ?'})
+            return jsonify({'answer': 'Бро, я тут! Напиши что надо - тарифы, скачать, подключить? Или сразу @HS1family - 2 мин решит! 🔥'})
 
     @app.after_request
     def add_cors(resp):
         resp.headers['Access-Control-Allow-Origin'] = '*'
-        resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        resp.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
         resp.headers['Access-Control-Allow-Methods'] = 'POST, GET, OPTIONS'
         return resp
 
     return app
 
 def start_health_server() -> tuple[BaseWSGIServer, threading.Thread]:
-    """Start the health endpoint in a background thread."""
     try:
         port = int(os.getenv("PORT", "5000"))
     except ValueError as error:
         raise RuntimeError("PORT must be an integer") from error
     if not 1 <= port <= 65535:
         raise RuntimeError("PORT must be between 1 and 65535")
-
-    server = make_server(
-        "0.0.0.0",
-        port,
-        create_health_app(),
-        threaded=True,
-    )
-    thread = threading.Thread(
-        target=server.serve_forever,
-        name="health-http-server",
-        daemon=True,
-    )
+    server = make_server("0.0.0.0", port, create_health_app(), threaded=True)
+    thread = threading.Thread(target=server.serve_forever, name="health-http-server", daemon=True)
     thread.start()
     logger.info("Health endpoint listening on 0.0.0.0:%s/health", port)
     return server, thread
 
-def stop_health_server(
-    server: BaseWSGIServer, thread: threading.Thread
-) -> None:
-    """Stop the background health server and release its listening socket."""
+def stop_health_server(server: BaseWSGIServer, thread: threading.Thread) -> None:
     server.shutdown()
     server.server_close()
     thread.join(timeout=5)
@@ -193,50 +205,39 @@ def stop_health_server(
         logger.warning("Health server thread did not stop within five seconds")
 
 def main_kb() -> InlineKeyboardMarkup:
-    """Build the HS1 VPN resource buttons."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-    text="📥 Скачать HS1 VPN",
-    url="https://github.com/safarovclub-ops/HS1VPN/releases/download/v1.0/HSOneVPN12.apk",
-),
-InlineKeyboardButton(
-    text="🔑 Как подключить",
-    url="https://t.me/HS1group/60",
-),
+                    text="🚀 FLAPPY ZAKI — 5GB БЕСПЛАТНО!",
+                    web_app=WebAppInfo(url=SITE_URL),
+                ),
             ],
             [
-                InlineKeyboardButton(
-    text="📢 Наш канал",
-    url="https://t.me/HS1group",
-),
-InlineKeyboardButton(
-    text="👨‍💼 Админ @HS1family",
-    url="https://t.me/HS1family",
-),
+                InlineKeyboardButton(text="📥 Скачать HS1 VPN", url=APP_ANDROID_LINK),
+                InlineKeyboardButton(text="🔑 Как подключить", url=HOW_TO_LINK),
+            ],
+            [
+                InlineKeyboardButton(text="📢 Наш канал", url="https://t.me/HS1group"),
+                InlineKeyboardButton(text="👨‍💼 Админ @HS1family", url="https://t.me/HS1family"),
             ],
         ]
     )
 
 def get_lock(key: ConversationKey) -> asyncio.Lock:
-    """Return a lock that keeps one person's turns in order."""
     if key not in conversation_locks:
         conversation_locks[key] = asyncio.Lock()
     return conversation_locks[key]
 
 def split_telegram_text(text: str) -> list[str]:
-    """Split long responses at word boundaries for Telegram."""
     chunks: list[str] = []
     remaining = text.strip()
-
     while len(remaining) > TELEGRAM_MESSAGE_LIMIT:
         split_at = remaining.rfind(" ", 0, TELEGRAM_MESSAGE_LIMIT)
         if split_at <= 0:
             split_at = TELEGRAM_MESSAGE_LIMIT
         chunks.append(remaining[:split_at])
         remaining = remaining[split_at:].lstrip()
-
     if remaining:
         chunks.append(remaining)
     return chunks or ["Бро, не получилось подготовить ответ. Попробуй ещё раз."]
@@ -251,15 +252,17 @@ async def start_handler(message: Message) -> None:
     await message.answer(
         "Йоу, бро! 🔥 Добро пожаловать в HS1 VPN.\n\n"
         "Я помогу разобраться с установкой и подключением.\n"
+        "А ещё у нас FLAPPY ZAKI — 15 врат = 5GB БЕСПЛАТНО! 🚀\n"
         "Выбирай кнопку ниже или просто напиши, что случилось.",
         reply_markup=main_kb(),
     )
 
 async def help_handler(message: Message) -> None:
     await message.answer(
-        "Бро, напиши, что именно не получается с HS1 VPN — постараюсь помочь и объясню, почему совет сработает.\n\n"
+        "Бро, напиши, что именно не получается с HS1 VPN — постараюсь помочь.\n\n"
         "/start — открыть меню\n"
         "/reset — очистить память диалога\n"
+        "/flappy — игра FLAPPY ZAKI 5GB\n"
         "/help — показать эту справку",
         reply_markup=main_kb(),
     )
@@ -271,15 +274,22 @@ async def reset_handler(message: Message) -> None:
             conversations.pop(key, None)
     await message.answer("Готово, бро — память диалога очищена.", reply_markup=main_kb())
 
+async def flappy_handler(message: Message) -> None:
+    await message.answer(
+        "🚀 FLAPPY ZAKI! 15 врат = 5GB БЕСПЛАТНО!\n\nЖми кнопку и лети! Чек потом @HS1family",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[[
+                InlineKeyboardButton(text="🚀 ИГРАТЬ — 5GB!", web_app=WebAppInfo(url=SITE_URL))
+            ]]
+        )
+    )
+
 async def chat_handler(message: Message) -> None:
     if message.text is None or message.from_user is None:
         return
     if groq_client is None:
         logger.error("Groq client was not initialized")
-        await message.answer(
-            "ИИ-помощник пока не настроен. Попробуй позже или напиши админу @HS1family.",
-            reply_markup=main_kb(),
-        )
+        await message.answer("ИИ-помощник пока не настроен. Попробуй позже или напиши админу @HS1family.", reply_markup=main_kb())
         return
 
     key = (message.chat.id, message.from_user.id)
@@ -290,12 +300,8 @@ async def chat_handler(message: Message) -> None:
             *history[-MAX_HISTORY_MESSAGES:],
             {"role": "user", "content": message.text},
         ]
-
         try:
-            await message.bot.send_chat_action(
-                chat_id=message.chat.id,
-                action=ChatAction.TYPING,
-            )
+            await message.bot.send_chat_action(chat_id=message.chat.id, action=ChatAction.TYPING)
             completion = await groq_client.chat.completions.create(
                 model=MODEL,
                 messages=request_messages,
@@ -306,90 +312,50 @@ async def chat_handler(message: Message) -> None:
             if not answer or not answer.strip():
                 raise ValueError("Groq returned an empty response")
         except RateLimitError:
-            logger.warning("Groq rate limit reached")
-            await message.answer(
-                "Сейчас много запросов, бро. Попробуй ещё раз чуть позже.",
-                reply_markup=main_kb(),
-            )
+            await message.answer("Сейчас много запросов, бро. Попробуй ещё раз чуть позже.", reply_markup=main_kb())
             return
         except APITimeoutError:
-            logger.warning("Groq request timed out")
-            await message.answer(
-                "ИИ долго отвечает, бро. Попробуй ещё раз или открой инструкцию ниже.",
-                reply_markup=main_kb(),
-            )
+            await message.answer("ИИ долго отвечает, бро. Попробуй ещё раз или открой инструкцию ниже.", reply_markup=main_kb())
             return
         except APIConnectionError:
-            logger.exception("Could not connect to Groq")
-            await message.answer(
-                "ИИ-помощник временно недоступен. Попробуй позже или напиши админу @HS1family.",
-                reply_markup=main_kb(),
-            )
+            await message.answer("ИИ-помощник временно недоступен. Попробуй позже или напиши админу @HS1family.", reply_markup=main_kb())
             return
         except APIStatusError as error:
             logger.error("Groq returned HTTP status %s", error.status_code)
-            await message.answer(
-                "Не получилось получить ответ. Попробуй позже или напиши админу @HS1family.",
-                reply_markup=main_kb(),
-            )
+            await message.answer("Не получилось получить ответ. Попробуй позже или напиши админу @HS1family.", reply_markup=main_kb())
             return
         except Exception:
             logger.exception("Could not generate a response")
-            await message.answer(
-                "Бро, не получилось подготовить ответ. Попробуй позже или напиши админу @HS1family.",
-                reply_markup=main_kb(),
-            )
+            await message.answer("Бро, не получилось подготовить ответ. Попробуй позже или напиши админу @HS1family.", reply_markup=main_kb())
             return
 
-        updated_history = [
-            *history,
-            {"role": "user", "content": message.text},
-            {"role": "assistant", "content": answer.strip()},
-        ]
+        updated_history = [*history, {"role": "user", "content": message.text}, {"role": "assistant", "content": answer.strip()}]
         conversations[key] = updated_history[-MAX_HISTORY_MESSAGES:]
         await send_response(message, answer)
 
 async def main() -> None:
     global groq_client
-
     health_server, health_thread = start_health_server()
     bot: Bot | None = None
     try:
-        telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
+        telegram_token = os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("BOT_TOKEN")
         groq_api_key = os.getenv("GROQ_API_KEY")
-        missing = [
-            name
-            for name, value in (
-                ("TELEGRAM_BOT_TOKEN", telegram_token),
-                ("GROQ_API_KEY", groq_api_key),
-            )
-            if not value
-        ]
+        missing = [name for name, value in (("TELEGRAM_BOT_TOKEN", telegram_token), ("GROQ_API_KEY", groq_api_key)) if not value]
         if missing:
-            raise RuntimeError(
-                "Missing required secret(s): "
-                + ", ".join(missing)
-                + ". Add them in Replit Secrets before starting the bot."
-            )
-
+            raise RuntimeError("Missing required secret(s): " + ", ".join(missing) + ". Add them in Replit Secrets before starting the bot.")
         groq_client = AsyncGroq(api_key=groq_api_key, timeout=30.0, max_retries=2)
         bot = Bot(token=telegram_token)
         dispatcher = Dispatcher()
         dispatcher.message.register(start_handler, CommandStart())
         dispatcher.message.register(help_handler, Command("help"))
         dispatcher.message.register(reset_handler, Command("reset"))
+        dispatcher.message.register(flappy_handler, Command("flappy"))
+        dispatcher.message.register(flappy_handler, F.text.lower().contains("игра"))
+        dispatcher.message.register(flappy_handler, F.text.lower().contains("flappy"))
         dispatcher.message.register(chat_handler, F.text)
-
-        logger.info(
-            "Starting HS1 Telegram bot with model %s at temperature %.2f",
-            MODEL,
-            TEMPERATURE,
-        )
+        logger.info("Starting HS1 Telegram bot with model %s at temperature %.2f", MODEL, TEMPERATURE)
         await bot.delete_webhook(drop_pending_updates=False)
-        await dispatcher.start_polling(
-            bot,
-            allowed_updates=dispatcher.resolve_used_update_types(),
-        )
+        await dispatcher.start_polling(bot, allowed_updates=dispatcher.resolve_used_update_types())
     finally:
         try:
             if bot is not None:
